@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>有声书生产平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .view { display: none; }
+    .view.active { display: block; }
+    .status-pending_tts { background-color: #9ca3af; }
+    .status-tts_done { background-color: #3b82f6; }
+    .status-passed { background-color: #22c55e; }
+    .status-needs_polish { background-color: #f97316; }
+    .status-polish_uploaded { background-color: #a855f7; }
+    .status-failed { background-color: #ef4444; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- Nav bar with role switcher -->
+<nav class="bg-indigo-700 text-white px-6 py-3 flex items-center gap-4 shadow">
+  <span class="font-bold text-lg mr-4">有声书生产平台</span>
+  <a href="#admin"
+     class="px-3 py-1 rounded hover:bg-indigo-500 transition nav-link"
+     data-view="admin">管理员</a>
+  <a href="#annotator"
+     class="px-3 py-1 rounded hover:bg-indigo-500 transition nav-link"
+     data-view="annotator">标注员</a>
+  <a href="#polisher"
+     class="px-3 py-1 rounded hover:bg-indigo-500 transition nav-link"
+     data-view="polisher">精雕老师</a>
+</nav>
+
+<!-- ===== ADMIN VIEW ===== -->
+<div id="view-admin" class="view p-6">
+  <h1 class="text-2xl font-bold mb-4">管理员工作台</h1>
+
+  <!-- Import Book Button -->
+  <div class="mb-4 flex gap-3 items-center">
+    <button onclick="openImportModal()"
+            class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+      + 导入书籍
+    </button>
+    <button onclick="adminLoadBooks()"
+            class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">
+      刷新列表
+    </button>
+  </div>
+
+  <!-- Books Table -->
+  <div class="bg-white rounded shadow overflow-x-auto mb-6">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b">
+        <tr>
+          <th class="px-4 py-2 text-left">ID</th>
+          <th class="px-4 py-2 text-left">书名</th>
+          <th class="px-4 py-2 text-left">状态</th>
+          <th class="px-4 py-2 text-left">章节数</th>
+          <th class="px-4 py-2 text-left">创建时间</th>
+          <th class="px-4 py-2 text-left">操作</th>
+        </tr>
+      </thead>
+      <tbody id="admin-books-tbody">
+        <tr><td colspan="6" class="px-4 py-4 text-gray-400 text-center">加载中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Chapters Panel -->
+  <div id="admin-chapters-panel" class="hidden">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-xl font-semibold">章节列表 — <span id="admin-book-title"></span></h2>
+      <button onclick="hideChapters()" class="text-sm text-gray-500 hover:text-gray-700">返回</button>
+    </div>
+    <div class="bg-white rounded shadow overflow-x-auto mb-6">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b">
+          <tr>
+            <th class="px-4 py-2 text-left">章节</th>
+            <th class="px-4 py-2 text-left">标题</th>
+            <th class="px-4 py-2 text-left">状态</th>
+            <th class="px-4 py-2 text-left">完成度</th>
+            <th class="px-4 py-2 text-left">操作</th>
+          </tr>
+        </thead>
+        <tbody id="admin-chapters-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Logs Panel -->
+  <div>
+    <h2 class="text-xl font-semibold mb-2">操作日志（最近 20 条）</h2>
+    <div class="bg-white rounded shadow overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b">
+          <tr>
+            <th class="px-4 py-2 text-left">时间</th>
+            <th class="px-4 py-2 text-left">角色</th>
+            <th class="px-4 py-2 text-left">操作</th>
+            <th class="px-4 py-2 text-left">目标</th>
+            <th class="px-4 py-2 text-left">状态变更</th>
+          </tr>
+        </thead>
+        <tbody id="admin-logs-tbody">
+          <tr><td colspan="5" class="px-4 py-4 text-gray-400 text-center">暂无日志</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <button onclick="adminLoadLogs()" class="mt-2 text-sm text-indigo-600 hover:underline">刷新日志</button>
+  </div>
+</div>
+
+<!-- ===== ANNOTATOR VIEW ===== -->
+<div id="view-annotator" class="view p-6">
+  <h1 class="text-2xl font-bold mb-4">标注员评估工作台</h1>
+  <div class="flex gap-4 h-full">
+    <!-- Left Panel: chapter selector + segment list -->
+    <div class="w-64 flex-shrink-0">
+      <div class="mb-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">选择书籍</label>
+        <select id="ann-book-select" onchange="annLoadChapters()"
+                class="w-full border rounded px-2 py-1 text-sm">
+          <option value="">-- 选择书籍 --</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">选择章节</label>
+        <select id="ann-chapter-select" onchange="annLoadSegments()"
+                class="w-full border rounded px-2 py-1 text-sm">
+          <option value="">-- 选择章节 --</option>
+        </select>
+      </div>
+      <div id="ann-segment-list" class="space-y-1 max-h-[60vh] overflow-y-auto"></div>
+    </div>
+
+    <!-- Right Panel: segment detail + evaluation form -->
+    <div id="ann-detail-panel" class="flex-1 bg-white rounded shadow p-4 hidden">
+      <div class="mb-3">
+        <h3 class="font-semibold text-gray-700 mb-1">原始文字</h3>
+        <p id="ann-original-text" class="text-sm text-gray-600 bg-gray-50 rounded p-2 whitespace-pre-wrap"></p>
+      </div>
+
+      <!-- Audio Player -->
+      <div class="mb-4">
+        <h3 class="font-semibold text-gray-700 mb-1">音频</h3>
+        <audio id="ann-audio-player" controls class="w-full mb-2"></audio>
+        <div class="flex gap-2 text-sm">
+          <span class="text-gray-500">倍速：</span>
+          <button onclick="setSpeed(1)" class="px-2 py-0.5 border rounded hover:bg-gray-100">1x</button>
+          <button onclick="setSpeed(1.5)" class="px-2 py-0.5 border rounded hover:bg-gray-100">1.5x</button>
+          <button onclick="setSpeed(2)" class="px-2 py-0.5 border rounded hover:bg-gray-100">2x</button>
+        </div>
+      </div>
+
+      <!-- Evaluation Form -->
+      <form id="ann-eval-form" onsubmit="submitEvaluation(event)">
+        <input type="hidden" id="ann-current-segment-id" value="" />
+        <div class="mb-3">
+          <label class="font-semibold text-gray-700 block mb-1">评估结果</label>
+          <div class="flex gap-4">
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="radio" name="can_use" value="true" onchange="toggleUnavailableForm(false)" checked />
+              <span>可用</span>
+            </label>
+            <label class="flex items-center gap-1 cursor-pointer">
+              <input type="radio" name="can_use" value="false" onchange="toggleUnavailableForm(true)" />
+              <span>不可用</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Unavailable expanded form -->
+        <div id="ann-unavailable-form" class="hidden border-t pt-3 mt-3 space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">问题标签（多选）</label>
+            <div class="grid grid-cols-2 gap-1">
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="稳定性问题" /> 稳定性问题
+              </label>
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="副语言问题" /> 副语言问题
+              </label>
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="发音错误" /> 发音错误
+              </label>
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="语速问题" /> 语速问题
+              </label>
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="情感问题" /> 情感问题
+              </label>
+              <label class="flex items-center gap-1 text-sm">
+                <input type="checkbox" name="badcase_tags" value="其他" /> 其他
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">修改后文字</label>
+            <textarea id="ann-modified-text" rows="3"
+                      class="w-full border rounded px-2 py-1 text-sm"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+            <textarea id="ann-annotation" rows="2"
+                      class="w-full border rounded px-2 py-1 text-sm"></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">重新生成</label>
+            <button type="button" onclick="regenTTS()"
+                    class="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm">
+              重新生成 TTS
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit"
+                  class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+            提交评估
+          </button>
+        </div>
+      </form>
+      <div id="ann-msg" class="mt-2 text-sm hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== POLISHER VIEW ===== -->
+<div id="view-polisher" class="view p-6">
+  <h1 class="text-2xl font-bold mb-4">精雕老师工作台</h1>
+  <div class="flex gap-4">
+    <!-- Left: needs_polish segment list -->
+    <div class="w-80 flex-shrink-0">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="font-semibold">待处理片段</h2>
+        <button onclick="polisherLoadSegments()" class="text-sm text-indigo-600 hover:underline">刷新</button>
+      </div>
+      <div id="polisher-segment-list" class="space-y-2 max-h-[70vh] overflow-y-auto"></div>
+    </div>
+
+    <!-- Right: detail + upload -->
+    <div id="polisher-detail-panel" class="flex-1 bg-white rounded shadow p-4 hidden">
+      <div class="mb-3">
+        <h3 class="font-semibold text-gray-700">原始文字</h3>
+        <p id="pol-original-text" class="text-sm text-gray-600 bg-gray-50 rounded p-2 mt-1 whitespace-pre-wrap"></p>
+      </div>
+      <div class="mb-3">
+        <h3 class="font-semibold text-gray-700">修改后文字（标注员）</h3>
+        <p id="pol-modified-text" class="text-sm text-gray-600 bg-gray-50 rounded p-2 mt-1 whitespace-pre-wrap"></p>
+      </div>
+      <div class="mb-3">
+        <h3 class="font-semibold text-gray-700">问题标签</h3>
+        <p id="pol-badcase-tags" class="text-sm text-orange-600 mt-1"></p>
+      </div>
+      <div class="mb-4">
+        <h3 class="font-semibold text-gray-700">备注</h3>
+        <p id="pol-annotation" class="text-sm text-gray-600 mt-1"></p>
+      </div>
+
+      <!-- Upload Area -->
+      <div class="mb-4">
+        <h3 class="font-semibold text-gray-700 mb-2">上传精雕音频（.wav）</h3>
+        <input type="hidden" id="pol-current-segment-id" value="" />
+        <div id="pol-drop-area"
+             class="border-2 border-dashed border-gray-300 rounded p-6 text-center cursor-pointer hover:border-indigo-400 transition"
+             onclick="document.getElementById('pol-file-input').click()"
+             ondragover="event.preventDefault()"
+             ondrop="polisherHandleDrop(event)">
+          <p class="text-gray-500">拖拽 WAV 文件到此处，或点击选择文件</p>
+        </div>
+        <input type="file" id="pol-file-input" accept=".wav" class="hidden"
+               onchange="polisherPreviewFile(event)" />
+      </div>
+
+      <!-- Preview Player -->
+      <div id="pol-preview-area" class="hidden mb-4">
+        <h3 class="font-semibold text-gray-700 mb-1">试听上传音频</h3>
+        <audio id="pol-preview-player" controls class="w-full"></audio>
+      </div>
+
+      <button onclick="polisherSubmit()"
+              class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+        确认提交
+      </button>
+      <div id="pol-msg" class="mt-2 text-sm hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IMPORT MODAL ===== -->
+<div id="import-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+  <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+    <h2 class="text-xl font-bold mb-4">导入书籍</h2>
+    <form id="import-form" onsubmit="submitImport(event)">
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">书名</label>
+        <input type="text" id="import-title" required
+               class="w-full border rounded px-3 py-2 text-sm"
+               placeholder="请输入书名" />
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">文件（.txt 或 .json）</label>
+        <input type="file" id="import-file" accept=".txt,.json" required
+               class="w-full border rounded px-3 py-2 text-sm" />
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="closeImportModal()"
+                class="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit"
+                class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">导入</button>
+      </div>
+    </form>
+    <div id="import-msg" class="mt-2 text-sm hidden"></div>
+  </div>
+</div>
+
+<script>
+// ========== ROUTING ==========
+const VIEWS = ['admin', 'annotator', 'polisher'];
+
+function showView(name) {
+  VIEWS.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('active', v === name);
+  });
+  document.querySelectorAll('.nav-link').forEach(a => {
+    a.classList.toggle('bg-indigo-500', a.dataset.view === name);
+  });
+}
+
+function routeFromHash() {
+  const hash = location.hash.replace('#', '') || 'admin';
+  const view = VIEWS.includes(hash) ? hash : 'admin';
+  showView(view);
+  if (view === 'admin') adminLoadBooks();
+  if (view === 'annotator') annLoadBooks();
+  if (view === 'polisher') polisherLoadSegments();
+}
+
+window.addEventListener('hashchange', routeFromHash);
+window.addEventListener('load', routeFromHash);
+
+// ========== API HELPERS ==========
+const API = '/api/v1';
+
+async function apiFetch(path, options = {}) {
+  const res = await fetch(API + path, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ========== ADMIN ==========
+let adminCurrentBookId = null;
+
+async function adminLoadBooks() {
+  try {
+    const books = await apiFetch('/books');
+    const tbody = document.getElementById('admin-books-tbody');
+    if (!books.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-gray-400 text-center">暂无书籍</td></tr>';
+      return;
+    }
+    tbody.innerHTML = books.map(b => `
+      <tr class="border-b hover:bg-gray-50">
+        <td class="px-4 py-2">${b.id}</td>
+        <td class="px-4 py-2 font-medium">${escHtml(b.title)}</td>
+        <td class="px-4 py-2"><span class="px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">${b.status}</span></td>
+        <td class="px-4 py-2">${b.chapter_count}</td>
+        <td class="px-4 py-2 text-gray-400 text-xs">${b.created_at.slice(0,16)}</td>
+        <td class="px-4 py-2">
+          <button onclick="adminShowChapters(${b.id}, '${escHtml(b.title)}')"
+                  class="text-indigo-600 hover:underline text-sm">查看章节</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function adminShowChapters(bookId, bookTitle) {
+  adminCurrentBookId = bookId;
+  document.getElementById('admin-book-title').textContent = bookTitle;
+  document.getElementById('admin-chapters-panel').classList.remove('hidden');
+  await adminLoadChapters(bookId);
+}
+
+function hideChapters() {
+  document.getElementById('admin-chapters-panel').classList.add('hidden');
+  adminCurrentBookId = null;
+}
+
+async function adminLoadChapters(bookId) {
+  try {
+    const chapters = await apiFetch(`/books/${bookId}/chapters`);
+    const tbody = document.getElementById('admin-chapters-tbody');
+    tbody.innerHTML = chapters.map(c => {
+      const pct = Math.round((c.completion_rate || 0) * 100);
+      return `
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-4 py-2">${c.chapter_no}</td>
+          <td class="px-4 py-2">${escHtml(c.title)}</td>
+          <td class="px-4 py-2 text-xs">${c.status}</td>
+          <td class="px-4 py-2 w-40">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-gray-200 rounded h-2">
+                <div class="bg-green-500 h-2 rounded" style="width:${pct}%"></div>
+              </div>
+              <span class="text-xs text-gray-600">${pct}%</span>
+            </div>
+          </td>
+          <td class="px-4 py-2">
+            <button onclick="triggerChapterTTS(${c.id})"
+                    class="text-sm bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-600">
+              触发 TTS
+            </button>
+            ${c.output_path ? `<a href="/api/v1/chapters/${c.id}/output" class="ml-2 text-sm text-green-600 hover:underline">下载</a>` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function triggerChapterTTS(chapterId) {
+  try {
+    const segments = await apiFetch(`/chapters/${chapterId}/segments`);
+    const pending = segments.filter(s => s.status === 'pending_tts');
+    if (!pending.length) { alert('该章节没有待处理的片段'); return; }
+    for (const seg of pending) {
+      await apiFetch(`/segments/${seg.id}/tts`, { method: 'POST' });
+    }
+    alert(`已触发 ${pending.length} 个片段的 TTS`);
+    if (adminCurrentBookId) adminLoadChapters(adminCurrentBookId);
+  } catch (e) {
+    alert('触发 TTS 失败: ' + e.message);
+  }
+}
+
+async function adminLoadLogs() {
+  try {
+    const logs = await apiFetch('/logs?limit=20');
+    const tbody = document.getElementById('admin-logs-tbody');
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-gray-400 text-center">暂无日志</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(l => `
+      <tr class="border-b text-sm">
+        <td class="px-4 py-2 text-gray-400 text-xs">${l.created_at.slice(0,16)}</td>
+        <td class="px-4 py-2">${l.operator_role || '-'}</td>
+        <td class="px-4 py-2">${escHtml(l.action)}</td>
+        <td class="px-4 py-2">${l.target_type}#${l.target_id}</td>
+        <td class="px-4 py-2">${l.before_status || '-'} → ${l.after_status || '-'}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ========== IMPORT MODAL ==========
+function openImportModal() {
+  document.getElementById('import-modal').classList.remove('hidden');
+  document.getElementById('import-msg').classList.add('hidden');
+}
+function closeImportModal() {
+  document.getElementById('import-modal').classList.add('hidden');
+  document.getElementById('import-form').reset();
+}
+
+async function submitImport(e) {
+  e.preventDefault();
+  const title = document.getElementById('import-title').value.trim();
+  const file = document.getElementById('import-file').files[0];
+  const msgEl = document.getElementById('import-msg');
+
+  if (!title || !file) return;
+
+  const formData = new FormData();
+  formData.append('title', title);
+  formData.append('file', file);
+
+  try {
+    const res = await fetch(API + '/books', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    const data = await res.json();
+    msgEl.textContent = `导入成功！书籍 ID: ${data.id}`;
+    msgEl.className = 'mt-2 text-sm text-green-600';
+    msgEl.classList.remove('hidden');
+    setTimeout(() => { closeImportModal(); adminLoadBooks(); }, 1500);
+  } catch (e) {
+    msgEl.textContent = '导入失败: ' + e.message;
+    msgEl.className = 'mt-2 text-sm text-red-600';
+    msgEl.classList.remove('hidden');
+  }
+}
+
+// ========== ANNOTATOR ==========
+let annCurrentSegmentId = null;
+
+async function annLoadBooks() {
+  try {
+    const books = await apiFetch('/books');
+    const sel = document.getElementById('ann-book-select');
+    sel.innerHTML = '<option value="">-- 选择书籍 --</option>' +
+      books.map(b => `<option value="${b.id}">${escHtml(b.title)}</option>`).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function annLoadChapters() {
+  const bookId = document.getElementById('ann-book-select').value;
+  if (!bookId) return;
+  try {
+    const chapters = await apiFetch(`/books/${bookId}/chapters`);
+    const sel = document.getElementById('ann-chapter-select');
+    sel.innerHTML = '<option value="">-- 选择章节 --</option>' +
+      chapters.map(c => `<option value="${c.id}">${escHtml(c.title)}</option>`).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function annLoadSegments() {
+  const chapterId = document.getElementById('ann-chapter-select').value;
+  if (!chapterId) return;
+  try {
+    const segments = await apiFetch(`/chapters/${chapterId}/segments`);
+    const listEl = document.getElementById('ann-segment-list');
+    listEl.innerHTML = segments.map(s => `
+      <div onclick="annSelectSegment(${s.id})"
+           class="p-2 rounded cursor-pointer border hover:shadow-sm flex items-center gap-2 bg-white">
+        <span class="w-3 h-3 rounded-full status-${s.status} flex-shrink-0"></span>
+        <span class="text-xs truncate">${s.segment_no}. ${escHtml((s.original_text || '').slice(0, 40))}</span>
+      </div>
+    `).join('') || '<p class="text-sm text-gray-400">暂无片段</p>';
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function annSelectSegment(segmentId) {
+  annCurrentSegmentId = segmentId;
+  try {
+    const seg = await apiFetch(`/segments/${segmentId}`);
+    document.getElementById('ann-original-text').textContent = seg.original_text || '';
+    document.getElementById('ann-modified-text').value = seg.original_text || '';
+    document.getElementById('ann-current-segment-id').value = segmentId;
+    document.getElementById('ann-detail-panel').classList.remove('hidden');
+
+    // Set audio
+    const audio = document.getElementById('ann-audio-player');
+    audio.src = `/api/v1/segments/${segmentId}/audio?t=${Date.now()}`;
+
+    // Reset form
+    document.querySelector('input[name="can_use"][value="true"]').checked = true;
+    toggleUnavailableForm(false);
+    document.getElementById('ann-msg').classList.add('hidden');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function toggleUnavailableForm(show) {
+  const form = document.getElementById('ann-unavailable-form');
+  form.classList.toggle('hidden', !show);
+}
+
+function setSpeed(rate) {
+  document.getElementById('ann-audio-player').playbackRate = rate;
+}
+
+async function regenTTS() {
+  if (!annCurrentSegmentId) return;
+  try {
+    await apiFetch(`/segments/${annCurrentSegmentId}/tts`, { method: 'POST' });
+    const audio = document.getElementById('ann-audio-player');
+    audio.src = `/api/v1/segments/${annCurrentSegmentId}/audio?t=${Date.now()}`;
+    alert('TTS 重新生成成功');
+  } catch (e) {
+    alert('重新生成失败: ' + e.message);
+  }
+}
+
+async function submitEvaluation(e) {
+  e.preventDefault();
+  const segId = document.getElementById('ann-current-segment-id').value;
+  if (!segId) return;
+  const canUse = document.querySelector('input[name="can_use"]:checked').value === 'true';
+  const msgEl = document.getElementById('ann-msg');
+
+  let body = { can_use: canUse };
+
+  if (!canUse) {
+    const checked = [...document.querySelectorAll('input[name="badcase_tags"]:checked')];
+    body.badcase_tags = checked.map(c => c.value);
+    body.modified_text = document.getElementById('ann-modified-text').value;
+    body.annotation = document.getElementById('ann-annotation').value;
+  }
+
+  try {
+    await apiFetch(`/segments/${segId}/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    msgEl.textContent = '评估提交成功！';
+    msgEl.className = 'mt-2 text-sm text-green-600';
+    msgEl.classList.remove('hidden');
+    annLoadSegments();
+  } catch (e) {
+    msgEl.textContent = '提交失败: ' + e.message;
+    msgEl.className = 'mt-2 text-sm text-red-600';
+    msgEl.classList.remove('hidden');
+  }
+}
+
+// ========== POLISHER ==========
+let polCurrentSegmentId = null;
+let polSelectedFile = null;
+
+async function polisherLoadSegments() {
+  try {
+    const books = await apiFetch('/books');
+    const allNeeds = [];
+    for (const book of books) {
+      const chapters = await apiFetch(`/books/${book.id}/chapters`);
+      for (const ch of chapters) {
+        const segs = await apiFetch(`/chapters/${ch.id}/segments`);
+        for (const seg of segs) {
+          if (seg.status === 'needs_polish') {
+            allNeeds.push({ ...seg, book_title: book.title, chapter_title: ch.title });
+          }
+        }
+      }
+    }
+    const listEl = document.getElementById('polisher-segment-list');
+    if (!allNeeds.length) {
+      listEl.innerHTML = '<p class="text-sm text-gray-400">暂无待处理片段</p>';
+      return;
+    }
+    listEl.innerHTML = allNeeds.map(s => `
+      <div onclick="polSelectSegment(${s.id})"
+           class="p-3 bg-white rounded shadow cursor-pointer hover:shadow-md border">
+        <div class="text-xs text-gray-400 mb-1">${escHtml(s.book_title)} / ${escHtml(s.chapter_title)}</div>
+        <div class="text-sm truncate">${escHtml((s.original_text || '').slice(0, 60))}</div>
+        <div class="text-xs text-orange-500 mt-1">
+          ${Array.isArray(s.badcase_tags) ? s.badcase_tags.join(', ') : (s.badcase_tags ? JSON.parse(s.badcase_tags).join(', ') : '')}
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function polSelectSegment(segmentId) {
+  polCurrentSegmentId = segmentId;
+  polSelectedFile = null;
+  try {
+    const seg = await apiFetch(`/segments/${segmentId}`);
+    document.getElementById('pol-original-text').textContent = seg.original_text || '';
+    document.getElementById('pol-modified-text').textContent = seg.modified_text || '（无修改）';
+    const tags = seg.badcase_tags
+      ? (Array.isArray(seg.badcase_tags) ? seg.badcase_tags : JSON.parse(seg.badcase_tags))
+      : [];
+    document.getElementById('pol-badcase-tags').textContent = tags.join(', ') || '无';
+    document.getElementById('pol-annotation').textContent = seg.annotation || '无';
+    document.getElementById('pol-current-segment-id').value = segmentId;
+    document.getElementById('polisher-detail-panel').classList.remove('hidden');
+    document.getElementById('pol-preview-area').classList.add('hidden');
+    document.getElementById('pol-msg').classList.add('hidden');
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function polisherHandleDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) polisherSetFile(file);
+}
+
+function polisherPreviewFile(e) {
+  const file = e.target.files[0];
+  if (file) polisherSetFile(file);
+}
+
+function polisherSetFile(file) {
+  polSelectedFile = file;
+  const url = URL.createObjectURL(file);
+  const player = document.getElementById('pol-preview-player');
+  player.src = url;
+  document.getElementById('pol-preview-area').classList.remove('hidden');
+  document.getElementById('pol-drop-area').querySelector('p').textContent = file.name;
+}
+
+async function polisherSubmit() {
+  if (!polCurrentSegmentId || !polSelectedFile) {
+    alert('请先选择片段和上传 WAV 文件');
+    return;
+  }
+  const msgEl = document.getElementById('pol-msg');
+  const formData = new FormData();
+  formData.append('file', polSelectedFile);
+  try {
+    const res = await fetch(`${API}/segments/${polCurrentSegmentId}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    msgEl.textContent = '提交成功！';
+    msgEl.className = 'mt-2 text-sm text-green-600';
+    msgEl.classList.remove('hidden');
+    polisherLoadSegments();
+  } catch (e) {
+    msgEl.textContent = '提交失败: ' + e.message;
+    msgEl.className = 'mt-2 text-sm text-red-600';
+    msgEl.classList.remove('hidden');
+  }
+}
+
+// ========== UTILS ==========
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

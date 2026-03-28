@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "project-mysql": {
+      "command": "node",
+      "args": [
+        "/path/to/.claude/mcp-servers/dynamic-mysql/index.js"
+      ],
+      "env": {
+        "DB_HOST": "127.0.0.1",
+        "DB_PORT": "3306",
+        "DB_USER": "your_db_user",
+        "DB_PASSWORD": "your_db_password",
+        "DB_DATABASE": "your_database_name"
+      }
+    },
+    "yapi-mcp": {
+      "type": "http",
+      "url": "https://yapi.your-company.com/yapi-info/yapi-mcp/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_YAPI_TOKEN_HERE"
+      }
+    },
+    "knowledge-base": {
+      "command": "knowledge-base-mcp",
+      "env": {
+        "KB_STORAGE_DIR": "docs/memory"
+      }
+    }
+  }
+}
