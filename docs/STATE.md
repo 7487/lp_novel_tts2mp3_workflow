@@ -6,13 +6,13 @@
 
 ## Overview
 
-| 字段            | 值                          |
-| --------------- | --------------------------- |
-| Current Phase   | ALL PHASES COMPLETE         |
-| Last Completed  | T119                        |
-| Active Task     | —                           |
-| Next Task       | —（全部完成）               |
-| Total Completed | 19 / 19                     |
+| 字段            | 值                                          |
+| --------------- | ------------------------------------------- |
+| Current Phase   | ALL PHASES COMPLETE (including Phase F)     |
+| Last Completed  | T123                                        |
+| Active Task     | —                                           |
+| Next Task       | —                                           |
+| Total Completed | 23 / 23                                     |
 
 ---
 
@@ -37,7 +37,7 @@
 
 ## Active Task
 
-> 无活跃任务。所有 TODO 已完成。
+> 当前无活跃任务。运行 /execute 开始执行 T120。
 
 ---
 
@@ -87,6 +87,15 @@
 | T118 | 操作日志接口 + 管理员日志面板 | completed |
 | T119 | 端到端集成验收                | completed |
 
+### Phase F — 批量压缩包书籍导入
+
+| TODO | 描述                                      | 状态    |
+| ---- | ----------------------------------------- | ------- |
+| T120 | 写测试 — archive_service                  | completed |
+| T121 | 实现 — archive_service.py                 | completed |
+| T122 | 实现 — POST /api/v1/books/batch-archive   | completed |
+| T123 | 前端 — 管理员视图批量导入压缩包入口       | completed |
+
 ---
 
 ## Completed Task Log
@@ -95,6 +104,10 @@
 
 | Task | 描述 | 完成时间 |
 |------|------|---------|
+| T123 | 前端管理员视图批量导入压缩包入口（modal + JS） | 2026-03-28 |
+| T122 | POST /api/v1/books/batch-archive 接口（max 20 files, 50MB/file） | 2026-03-28 |
+| T121 | archive_service.py（extract_txt_files/decode_txt/parse_archive_as_book + chardet） | 2026-03-28 |
+| T120 | 写测试 — archive_service（10 tests, 初始红灯） | 2026-03-28 |
 | T119 | 端到端集成验收（45 tests 全部通过） | 2026-03-28 |
 | T118 | 操作日志接口 + 管理员日志面板 | 2026-03-28 |
 | T117 | 精雕老师视图（集成在 frontend/index.html） | 2026-03-28 |

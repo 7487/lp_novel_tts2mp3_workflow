@@ -37,10 +37,14 @@
   <h1 class="text-2xl font-bold mb-4">管理员工作台</h1>
 
   <!-- Import Book Button -->
-  <div class="mb-4 flex gap-3 items-center">
+  <div class="mb-4 flex gap-3 items-center flex-wrap">
     <button onclick="openImportModal()"
             class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
       + 导入书籍
+    </button>
+    <button onclick="openBatchArchiveModal()"
+            class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">
+      + 批量导入压缩包
     </button>
     <button onclick="adminLoadBooks()"
             class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300">
@@ -316,6 +320,28 @@
   </div>
 </div>
 
+<!-- ===== BATCH ARCHIVE MODAL ===== -->
+<div id="batch-archive-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+  <div class="bg-white rounded-lg shadow-lg p-6 w-[480px] max-w-full">
+    <h2 class="text-xl font-bold mb-4">批量导入压缩包</h2>
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">
+        选择压缩包文件（支持 .zip、.tar、.tar.gz、.tgz、.tar.bz2，最多 20 个）
+      </label>
+      <input type="file" id="batch-archive-input" multiple
+             accept=".zip,.tar,.tar.gz,.tgz,.tar.bz2"
+             class="w-full border rounded px-3 py-2 text-sm" />
+    </div>
+    <div class="flex gap-3 justify-end mb-4">
+      <button type="button" onclick="closeBatchArchiveModal()"
+              class="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50">取消</button>
+      <button type="button" onclick="submitBatchArchive()"
+              class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">上传导入</button>
+    </div>
+    <div id="batch-archive-result" class="hidden text-sm space-y-2"></div>
+  </div>
+</div>
+
 <script>
 // ========== ROUTING ==========
 const VIEWS = ['admin', 'annotator', 'polisher'];
@@ -503,6 +529,80 @@ async function submitImport(e) {
     msgEl.textContent = '导入失败: ' + e.message;
     msgEl.className = 'mt-2 text-sm text-red-600';
     msgEl.classList.remove('hidden');
+  }
+}
+
+// ========== BATCH ARCHIVE MODAL ==========
+function openBatchArchiveModal() {
+  document.getElementById('batch-archive-modal').classList.remove('hidden');
+  document.getElementById('batch-archive-result').classList.add('hidden');
+  document.getElementById('batch-archive-result').innerHTML = '';
+  document.getElementById('batch-archive-input').value = '';
+}
+
+function closeBatchArchiveModal() {
+  document.getElementById('batch-archive-modal').classList.add('hidden');
+}
+
+async function batchImportArchives(files) {
+  const formData = new FormData();
+  for (const f of files) formData.append('files', f);
+  const resp = await fetch(API + '/books/batch-archive', { method: 'POST', body: formData });
+  const data = await resp.json();
+  return data;
+}
+
+async function submitBatchArchive() {
+  const input = document.getElementById('batch-archive-input');
+  const resultEl = document.getElementById('batch-archive-result');
+  const files = Array.from(input.files);
+
+  if (files.length === 0) {
+    resultEl.innerHTML = '<p class="text-red-600">请先选择文件。</p>';
+    resultEl.classList.remove('hidden');
+    return;
+  }
+  if (files.length > 20) {
+    resultEl.innerHTML = '<p class="text-red-600">最多一次导入 20 个文件。</p>';
+    resultEl.classList.remove('hidden');
+    return;
+  }
+
+  resultEl.innerHTML = '<p class="text-gray-500">正在上传，请稍候…</p>';
+  resultEl.classList.remove('hidden');
+
+  try {
+    const data = await batchImportArchives(files);
+    const succeeded = data.succeeded || [];
+    const failed = data.failed || [];
+
+    let html = '';
+    if (succeeded.length > 0) {
+      html += `<p class="text-green-700 font-medium">成功导入 ${succeeded.length} 本书</p>`;
+      html += '<ul class="text-green-600 list-disc list-inside">';
+      for (const item of succeeded) {
+        html += `<li>${item.filename} → 《${item.book_title}》（${item.chapter_count} 章，ID: ${item.book_id}）</li>`;
+      }
+      html += '</ul>';
+    }
+    if (failed.length > 0) {
+      html += `<p class="text-red-700 font-medium mt-2">失败 ${failed.length} 个：</p>`;
+      html += '<ul class="text-red-600 list-disc list-inside">';
+      for (const item of failed) {
+        html += `<li>${item.filename}：${item.error}</li>`;
+      }
+      html += '</ul>';
+    }
+    if (succeeded.length === 0 && failed.length === 0) {
+      html = '<p class="text-gray-500">无处理结果。</p>';
+    }
+    resultEl.innerHTML = html;
+
+    if (succeeded.length > 0) {
+      adminLoadBooks();
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<p class="text-red-600">请求失败: ${e.message}</p>`;
   }
 }
 

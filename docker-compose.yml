@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   mysql:
-    image: mysql:8.0
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/mysql:8.0
     container_name: tts2mp3_mysql
     restart: unless-stopped
     environment:

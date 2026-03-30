@@ -1,7 +1,7 @@
 # TODO
 
 > 唯一任务源。每轮只允许处理一个任务。
-> PRD: docs/PRD.md（有声书生产后台一期）
+> PRD: docs/specs/PRD_init_project.md（有声书生产后台一期）
 > 生成时间: 2026-03-28
 
 ---
@@ -118,3 +118,27 @@
   - 文件: `backend/tests/test_e2e.py`（或手动测试 checklist）
   - 验收: 按顺序执行：导入书籍 → 触发 TTS → 标注员评估（可用 + 不可用两条路径）→ 精雕上传 → 章节自动 merge → 管理员下载成品；AC-1 到 AC-11 全部通过
   - 依赖: T117, T118
+
+---
+
+## Phase F — 批量压缩包书籍导入
+
+- [x] T120: 写测试 — archive_service（zip/tar 解压 + 编码检测 + 书名提取）
+  - 文件: `backend/tests/test_archive_service.py`
+  - 验收: 覆盖以下用例（初始红灯）：① zip 包解压 → 按文件名排序返回 txt 列表；② tar/tar.gz 包同上；③ GBK 编码 txt 自动检测并正确解码；④ 子目录内 txt 被忽略（只取根层）；⑤ 无 txt 文件时抛 ValueError；⑥ 不支持格式（.pdf）时抛 ValueError；⑦ 书名从文件名提取（去 .zip/.tar/.tar.gz 扩展名）；⑧ 路径穿越（含 `..`）的条目被过滤
+  - 依赖: T119
+
+- [x] T121: 实现 — archive_service.py
+  - 文件: `backend/services/archive_service.py`, `requirements.txt`（新增 chardet）
+  - 验收: T120 测试全部绿灯；实现 `extract_txt_files` / `decode_txt` / `parse_archive_as_book` 三个函数；chardet 置信度 < 0.7 时 fallback UTF-8；支持 .zip / .tar / .tar.gz / .tgz / .tar.bz2
+  - 依赖: T120
+
+- [x] T122: 实现 — POST /api/v1/books/batch-archive 接口
+  - 文件: `backend/routers/books.py`
+  - 验收: 接受 `files: List[UploadFile]`（最多 20 个）；逐个调用 `parse_archive_as_book` + `import_book`；返回 `{"succeeded": [...], "failed": [...]}`；单个失败不影响其余；AC-3/AC-5 通过；单个文件超过 50MB 进入 failed 列表
+  - 依赖: T121
+
+- [x] T123: 前端 — 管理员视图批量导入压缩包入口
+  - 文件: `frontend/index.html`（管理员视图区块）
+  - 验收: 新增"批量导入压缩包"按钮；点击后弹窗支持多选文件（accept=".zip,.tar,.tar.gz,.tgz,.tar.bz2"）；上传后展示结果摘要（成功 N 本、失败 M 本；失败原因列表）；成功后自动刷新书籍列表；AC-8 通过
+  - 依赖: T122

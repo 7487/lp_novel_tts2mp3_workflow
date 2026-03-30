@@ -50,7 +50,7 @@
 
 ### Step 4：生成 PRD
 
-用户确认方案后，按 `docs/PRD.md` 模板生成完整 PRD，包含：
+用户确认方案后，按 `docs/specs/PRD_{{feature_name}}.md` 模板生成完整 PRD，包含：
 1. **审批状态** — 设为 `draft`
 2. **问题定义** — What & Why
 3. **用户故事** — 至少 2 个场景
@@ -62,9 +62,9 @@
 
 ### Step 5：写入文件
 
-将生成的 PRD 写入 `docs/PRD.md`。
+将生成的 PRD 写入 `docs/specs/PRD_{{feature_name}}.md`。
 
-如果 `docs/PRD.md` 已有内容（非模板），提示用户：
+如果 `docs/specs/PRD_{{feature_name}}.md` 已有内容（非模板），提示用户：
 - 覆盖当前 PRD
 - 写入 `docs/PRD_{{feature_name}}.md` 作为独立文件
 
@@ -73,7 +73,7 @@
 输出提示：
 
 ```
-PRD 已生成 → docs/PRD.md（status: draft）
+PRD 已生成 → docs/specs/PRD_{{feature_name}}.md（status: draft）
 
 下一步：
 1. 审核 PRD 内容，确认无误

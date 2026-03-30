@@ -30,7 +30,7 @@
    - 未解决的 bug 文件数
    - 各 bug 文件名
 
-5. **docs/PRD.md**：
+5. **docs/spec/PRD_{{feature_name}}.md**：
    - 审批状态
 
 ### Step 2：输出概览

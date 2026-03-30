@@ -1,9 +1,12 @@
 """Books router."""
 
 import json
+from typing import List
+
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
 from services.book_service import parse_txt, parse_json, import_book, get_books, get_book
+from services.archive_service import parse_archive_as_book
 
 router = APIRouter(tags=["books"])
 
@@ -71,3 +74,53 @@ async def get_book_detail(book_id: int):
         "created_at": str(book["created_at"]),
         "updated_at": str(book["updated_at"]),
     }
+
+
+_MAX_BATCH_FILES = 20
+_MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+@router.post("/books/batch-archive")
+async def batch_import_archives(
+    files: List[UploadFile] = File(...),
+):
+    """Batch import books from zip/tar archives.
+
+    Each archive becomes one book. Book title is extracted from filename.
+    Returns succeeded and failed lists.
+    Max 20 files per request. Max 50MB per file.
+    """
+    if len(files) > _MAX_BATCH_FILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files: max {_MAX_BATCH_FILES} per request, got {len(files)}",
+        )
+
+    succeeded = []
+    failed = []
+
+    for upload in files:
+        filename = upload.filename or "unknown"
+        try:
+            archive_bytes = await upload.read()
+
+            if len(archive_bytes) > _MAX_FILE_BYTES:
+                failed.append({"filename": filename, "error": "文件过大（超过 50MB）"})
+                continue
+
+            book_data = parse_archive_as_book(archive_bytes, filename)
+            book_id = import_book(book_data["title"], book_data["chapters"])
+
+            succeeded.append({
+                "filename": filename,
+                "book_id": book_id,
+                "book_title": book_data["title"],
+                "chapter_count": len(book_data["chapters"]),
+            })
+
+        except ValueError as exc:
+            failed.append({"filename": filename, "error": str(exc)})
+        except Exception as exc:
+            failed.append({"filename": filename, "error": f"导入失败: {exc}"})
+
+    return {"succeeded": succeeded, "failed": failed}

@@ -8,7 +8,7 @@
 
 ### Step 1：读取并校验 PRD
 
-读取 `docs/PRD.md`（或用户指定的 PRD 文件）。
+读取 `docs/spec/PRD_{{feature_name}}.md`（或用户指定的 PRD 文件）。
 
 校验审批状态：
 - 如果状态为 `approved` → 继续
@@ -24,7 +24,7 @@
 - `CLAUDE.md` — 确认编码规范和实现原则
 
 **按需读取输入型文档**（如目录存在，执行以下步骤）：
-1. 列出 `docs/design/`、`docs/specs/` 目录内容
+1. 列出 `docs/design/`、`docs/specs/` 目录内容（`docs/design/`下可能包含对应需求的一些现成设计实现，以供参考）
 2. 跳过 `_template.md` 和 `_archive/` 目录下的文件
 3. 读取文件头 `status` 字段（只读前 5 行）：
    - `status: done` → 移入 `_archive/`，跳过
